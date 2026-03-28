@@ -25,7 +25,7 @@ from email.policy import EmailPolicy
 from email.header import decode_header
 
 # set locale to system locale
-locale.setlocale(locale.LC_ALL, "en_US.utf8")
+locale.setlocale(locale.LC_ALL, "de_DE.utf8")
 
 class ns_dict (dict):
     def __getattr__(self, key):
