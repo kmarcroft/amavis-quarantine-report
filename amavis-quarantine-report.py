@@ -65,21 +65,31 @@ def get_spam(spam_glob):
             timestamp = os.stat(match)[stat.ST_CTIME]
             # compare the timestamp against time treshold 
             if timestamp > time_thresh:
-                # check if file is gzipped
-                if '.gz' in pathlib.Path(match).suffixes:
-                    # open gzip file handle
-                    with gzip.open(match, 'rb') as gh:
-                        res = emlparser.parse(gh)
-                        yield ns_dict({
-                            'date'  : parser.parse(res['Date']) if res['Date'] else datetime.fromtimestamp(timestamp),
-                            'to'    : str(res['To']),
-                            'frm'   : str(res['From']),
-                            'subj'  : str(res['Subject']),
-                            'id'    : match.split("virusmails/")[1],
-                            'score' : res['X-Spam-Score'],
-                            'xto'   : res['X-Envelope-To'],
-                            'time'  : timestamp
-                        })
+                try:
+                    # check if file is gzipped
+                    if '.gz' in pathlib.Path(match).suffixes:
+                        with gzip.open(match, 'rb') as gh:
+                            res = emlparser.parse(gh)
+                    else:
+                        with open(match, 'rb') as fh:
+                            res = emlparser.parse(fh)
+                except Exception as e:
+                    logtime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+                    sys.stderr.write("[%s] Skipping %s: %s\n" % (logtime, match, str(e)))
+                    continue
+                xto = res['X-Envelope-To']
+                if xto is None:
+                    continue
+                yield ns_dict({
+                    'date'  : parser.parse(res['Date']) if res['Date'] else datetime.fromtimestamp(timestamp),
+                    'to'    : str(res['To']),
+                    'frm'   : str(res['From']),
+                    'subj'  : str(res['Subject']),
+                    'id'    : match.split("virusmails/", 1)[1] if "virusmails/" in match else os.path.basename(match),
+                    'score' : res['X-Spam-Score'],
+                    'xto'   : xto,
+                    'time'  : timestamp
+                })
     return list(generator())
 
 
@@ -120,7 +130,7 @@ td { background-color:#ddd; min-height:10px; }
 ############################################
 # make report entries (spams)
 ############################################
-def make_report_entry(spam):
+def make_report_entry(spam, release_email):
     entry = \
 """
 <tr>
@@ -132,15 +142,15 @@ def make_report_entry(spam):
 <a href="mailto:%s?subject=x-amavis-release:%s" style="font-weight:bold; text-decoration:none; color:green;">&#8667; Release</a>
 </td>
 """
-    entry = entry % (spam.date.strftime("%a., %d.%m. %H:%M:%S"), spam.frm, spam.to, spam.subj[:40], conf.release_email, spam.id)
+    entry = entry % (spam.date.strftime("%a., %d.%m. %H:%M:%S"), spam.frm, spam.to, spam.subj[:40], release_email, spam.id)
     return entry.strip()
 
 
 ############################################
 # make report body
 ############################################
-def make_report_body(spam_list):
-    return "\n\n".join(map(make_report_entry, spam_list))
+def make_report_body(spam_list, release_email):
+    return "\n\n".join(make_report_entry(s, release_email) for s in spam_list)
 
 
 ############################################
@@ -160,12 +170,15 @@ def make_report_footer():
 ############################################
 def make_report(spam_list, conf, mbox):
     datestr = datetime.now().strftime("%A, %d. %B %Y")
-    spam_list = sorted(spam_list, key=lambda s: float(s.score))
+    spam_list = sorted(spam_list, key=lambda s: float(s.score) if s.score else 0.0)
     total_size = len(spam_list)
     pwd = os.path.dirname(os.path.realpath(__file__))
-    logo = base64.b64encode(open(pwd + "/logo.png", "rb").read()).decode("utf-8")
+    try:
+        logo = base64.b64encode(open(pwd + "/logo.png", "rb").read()).decode("utf-8")
+    except FileNotFoundError:
+        logo = ""
     msg = email.mime.text.MIMEText(make_report_header(logo, datestr, total_size)
-                                   + make_report_body(spam_list)
+                                   + make_report_body(spam_list, conf.release_email)
                                    + make_report_footer(), 'html', "utf-8")
 
     msg['From'] = "%s <%s>" % (conf.from_name, conf.from_address)
@@ -225,7 +238,7 @@ def do_spam_reports(conf):
 def do_spam_release(conf):
     msg = email.message_from_file(sys.stdin)
     subj = msg['Subject']
-    if "x-amavis-release" in subj:
+    if subj and "x-amavis-release" in subj:
         qmid = str(subj.split(":")[1]).rstrip()
         logtime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
         print ("[%s] Released spam %s from quarantine by user" % (logtime, qmid))
