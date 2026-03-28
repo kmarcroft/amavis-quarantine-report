@@ -71,7 +71,7 @@ def get_spam(spam_glob):
                     with gzip.open(match, 'rb') as gh:
                         res = emlparser.parse(gh)
                         yield ns_dict({
-                            'date'  : parser.parse(res['Date']),
+                            'date'  : parser.parse(res['Date']) if res['Date'] else datetime.fromtimestamp(timestamp),
                             'to'    : str(res['To']),
                             'frm'   : str(res['From']),
                             'subj'  : str(res['Subject']),
