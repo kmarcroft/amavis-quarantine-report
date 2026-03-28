@@ -107,20 +107,20 @@ h2 { margin-bottom:0px; }
 table { width:100%s; }
 th { background-color:#aaa; height:30px; }
 td { background-color:#ddd; min-height:10px; }
-.logo { position:absolute; top:10px; right:60px; }
+.logo { position:absolute; top: 0px; right:60px; }
 </style>
 </head>
 <body>
 <img class="logo" width="150" height"50" src="data:image/png;base64,%s">
-<h2>Quarantine Report for %s</h2>
-<p>Messages in Quarantine last 24h:  %d</p>
+<h2>Quarant&auml;ne Report f&uuml;r %s</h2>
+<p>Nachrichten in Quarant&auml;ne innerhalb der letzten 24 Stunden: %d</p>
 <table>
 <tr>
-<th>Date</th>
-<th>Sender</th>
-<th>Recipient</th>
-<th>Subject</th>
-<th>Action</th>
+<th>Datum</th>
+<th>Absender</th>
+<th>Empf&auml;nger</th>
+<th>Betreff</th>
+<th>Aktion</th>
 </tr>
 """
     header = header % ('%', logo, datestr, total)
@@ -139,7 +139,7 @@ def make_report_entry(spam, release_email):
 <td>%s</td>
 <td>%s</td>
 <td align="center">
-<a href="mailto:%s?subject=x-amavis-release:%s" style="font-weight:bold; text-decoration:none; color:green;">&#8667; Release</a>
+<a href="mailto:%s?subject=x-amavis-release:%s" style="font-weight:bold; text-decoration:none; color:green;">&#8667; Freigeben</a>
 </td>
 """
     entry = entry % (spam.date.strftime("%a., %d.%m. %H:%M:%S"), spam.frm, spam.to, spam.subj[:40], release_email, spam.id)
@@ -183,7 +183,7 @@ def make_report(spam_list, conf, mbox):
 
     msg['From'] = "%s <%s>" % (conf.from_name, conf.from_address)
     msg['To'] = "%s <%s>" % (mbox, mbox)
-    msg['Subject'] = "Quarantine Report for %s" % str(mbox)
+    msg['Subject'] = "Spam Report: %s" % str(mbox)
     msg['Date'] = email.utils.formatdate(localtime=1)
     msg.policy = EmailPolicy()
     return msg
@@ -193,7 +193,7 @@ def make_report(spam_list, conf, mbox):
 # send report via smtp
 ############################################
 def send_report(report, conf, mbox):
-    #mbox = [mbox] + ['test@yourcorp.com']
+    mbox = [mbox]
     try:
         with smtplib.SMTP(conf.smtp_server, conf.smtp_port) as conn:
             conn.sendmail(conf.from_address, mbox, report.as_string())
