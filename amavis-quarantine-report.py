@@ -72,9 +72,9 @@ def get_spam(spam_glob):
                         res = emlparser.parse(gh)
                         yield ns_dict({
                             'date'  : parser.parse(res['Date']),
-                            'to'    : res['To'],
-                            'frm'   : res['From'],
-                            'subj'  : res['Subject'],
+                            'to'    : str(res['To']),
+                            'frm'   : str(res['From']),
+                            'subj'  : str(res['Subject']),
                             'id'    : match.split("virusmails/")[1],
                             'score' : res['X-Spam-Score'],
                             'xto'   : res['X-Envelope-To'],
