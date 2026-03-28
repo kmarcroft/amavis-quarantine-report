@@ -181,9 +181,16 @@ def make_report(spam_list, conf, mbox):
 ############################################
 def send_report(report, conf, mbox):
     #mbox = [mbox] + ['test@yourcorp.com']
-    with smtplib.SMTP(conf.smtp_server, conf.smtp_port) as conn:
-        conn.sendmail(conf.from_address, mbox, report.as_string())
-        conn.quit()
+    try:
+        with smtplib.SMTP(conf.smtp_server, conf.smtp_port) as conn:
+            conn.sendmail(conf.from_address, mbox, report.as_string())
+            conn.quit()
+    except smtplib.SMTPDataError as e:
+        logtime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        sys.stderr.write("[%s] Failed to send report to %s: SMTP error %d %s\n" % (logtime, mbox, e.smtp_code, e.smtp_error))
+    except smtplib.SMTPException as e:
+        logtime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        sys.stderr.write("[%s] Failed to send report to %s: %s\n" % (logtime, mbox, str(e)))
 
 
 ############################################
