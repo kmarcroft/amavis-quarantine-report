@@ -56,6 +56,31 @@ class get_config (object):
 ############################################
 # get spam from amavis spam folder
 ############################################
+def parse_spam_date(date_value, fallback_timestamp):
+    if not date_value:
+        return datetime.fromtimestamp(fallback_timestamp)
+
+    # Prefer the stdlib RFC parser; it understands comments in headers.
+    try:
+        parsed = email.utils.parsedate_to_datetime(str(date_value))
+        if parsed is not None:
+            return parsed
+    except Exception:
+        pass
+
+    # Some Date headers include trailing TZ comments like "(GMT+08:00)".
+    cleaned_date = re.sub(r'\s+\([^)]*\)\s*$', '', str(date_value))
+    try:
+        return parser.parse(cleaned_date)
+    except Exception:
+        try:
+            return parser.parse(str(date_value), fuzzy=True)
+        except Exception:
+            logtime = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            sys.stderr.write("[%s] Failed to parse Date header '%s', using file timestamp fallback\n" % (logtime, str(date_value)))
+            return datetime.fromtimestamp(fallback_timestamp)
+
+
 def get_spam(spam_glob):
     def generator():
         time_thresh = (datetime.now() - timedelta(days=1)).timestamp()
@@ -81,7 +106,7 @@ def get_spam(spam_glob):
                 if xto is None:
                     continue
                 yield ns_dict({
-                    'date'  : parser.parse(res['Date']) if res['Date'] else datetime.fromtimestamp(timestamp),
+                    'date'  : parse_spam_date(res['Date'], timestamp),
                     'to'    : str(res['To']),
                     'frm'   : str(res['From']),
                     'subj'  : str(res['Subject']),
